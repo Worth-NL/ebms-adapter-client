@@ -1,0 +1,83 @@
+name: Release
+
+# Runs after CI succeeds on main (not on every push) so a release/tag/publish
+# chain can never fire against a commit whose tests didn't pass.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tag-and-release:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Read version from pyproject.toml
+        id: version
+        run: |
+          version=$(grep -m1 '^version = ' pyproject.toml | sed -E 's/version = "(.*)"/\1/')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this version was already released
+        id: check
+        run: |
+          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.version.outputs.tag }} already exists -- pyproject.toml version wasn't bumped, nothing to release."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract CHANGELOG.md section for this version
+        if: steps.check.outputs.should_release == 'true'
+        id: changelog
+        run: |
+          body=$(awk -v marker="[${{ steps.version.outputs.version }}]" '
+            /^## \[/ { if (capturing) exit; if (index($0, marker) > 0) { capturing=1; next } else { next } }
+            /^\[.+\]:/ { if (capturing) exit }
+            capturing { print }
+          ' CHANGELOG.md)
+          {
+            echo "body<<CHANGELOG_EOF"
+            echo "$body"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+          if [ -z "$(echo "$body" | tr -d '[:space:]')" ]; then
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "empty=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mint GitHub App installation token
+        # A release created with the default GITHUB_TOKEN would not trigger
+        # publish.yml's `on: release: published` -- GitHub suppresses
+        # workflow-triggering for events produced by GITHUB_TOKEN to prevent
+        # recursive runs. Using this App's token instead makes the release
+        # event trigger publish.yml normally.
+        if: steps.check.outputs.should_release == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Create tag and GitHub Release
+        if: steps.check.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.event.workflow_run.head_sha }}
+          body: ${{ steps.changelog.outputs.body }}
+          generate_release_notes: ${{ steps.changelog.outputs.empty }}
+          token: ${{ steps.app-token.outputs.token }}

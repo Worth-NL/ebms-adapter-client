@@ -1,5 +1,11 @@
 # ebms-adapter-client
 
+[![PyPI](https://img.shields.io/pypi/v/ebms-adapter-client.svg?style=for-the-badge)](https://pypi.org/project/ebms-adapter-client/)
+[![Python versions](https://img.shields.io/pypi/pyversions/ebms-adapter-client.svg?style=for-the-badge)](https://pypi.org/project/ebms-adapter-client/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Worth-NL/ebms-adapter-client/ci.yml?style=for-the-badge)](https://github.com/Worth-NL/ebms-adapter-client/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![Ruff](https://img.shields.io/endpoint?style=for-the-badge&url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 A minimal Python client for the REST API exposed by
 [eluinstra/ebms-core](https://github.com/eluinstra/ebms-core) (branch
 `ebms-core-2.20.x`), an ebMS (Electronic Business Messaging Service)
