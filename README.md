@@ -12,8 +12,8 @@ A minimal Python client for the REST API exposed by
 adapter/core used to send and receive ebMS messages between trading
 partners.
 
-> [!NOTE] This package only talks to ebms-core's HTTP/JSON REST API — it doesn't
-> implement ebMS/SOAP itself.
+> [!NOTE] 
+> This package only talks to ebms-core's HTTP/JSON REST API — it doesn't implement ebMS/SOAP itself.
 
 ## Endpoint coverage
 
