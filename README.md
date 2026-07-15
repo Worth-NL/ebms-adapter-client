@@ -1,9 +1,9 @@
 # ebms-adapter-client
 
-[![PyPI](https://img.shields.io/pypi/v/ebms-adapter-client.svg?style=for-the-badge)](https://pypi.org/project/ebms-adapter-client/)
-[![Python versions](https://img.shields.io/pypi/pyversions/ebms-adapter-client.svg?style=for-the-badge)](https://pypi.org/project/ebms-adapter-client/)
-[![CI](https://img.shields.io/github/actions/workflow/status/Worth-NL/ebms-adapter-client/ci.yml?style=for-the-badge)](https://github.com/Worth-NL/ebms-adapter-client/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/ebms-adapter-client.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/ebms-adapter-client/)
+[![Python versions](https://img.shields.io/pypi/pyversions/ebms-adapter-client.svg?style=for-the-badge&logo=python&logoColor=white)](https://pypi.org/project/ebms-adapter-client/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Worth-NL/ebms-adapter-client/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Worth-NL/ebms-adapter-client/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Ruff](https://img.shields.io/endpoint?style=for-the-badge&url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 A minimal Python client for the REST API exposed by
@@ -12,10 +12,8 @@ A minimal Python client for the REST API exposed by
 adapter/core used to send and receive ebMS messages between trading
 partners.
 
-This package only talks to ebms-core's HTTP/JSON REST API — it doesn't
-implement ebMS/SOAP itself. It's a building block intended to be consumed
-later by a NotifyNL service (e.g. a Celery task) as a new notification
-channel; it has no NotifyNL-specific code itself.
+> [!NOTE] This package only talks to ebms-core's HTTP/JSON REST API — it doesn't
+> implement ebMS/SOAP itself.
 
 ## Endpoint coverage
 
@@ -36,7 +34,7 @@ the plain JSON endpoints.
 ## Installation
 
 ```bash
-pip install -e .
+pip install ebms-adapter-client
 ```
 
 ## Usage
