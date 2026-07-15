@@ -39,3 +39,10 @@ Releases are triggered by version bumps, not manual tagging:
    Publishing.
 3. If `pyproject.toml`'s version isn't bumped, nothing is released — merging
    unrelated changes to `main` is safe and won't trigger a release.
+
+`release.yml` creates the release using a dedicated GitHub App's installation
+token (`RELEASE_APP_ID` / `RELEASE_APP_PRIVATE_KEY` repo secrets), not the
+default `GITHUB_TOKEN` — a release created with `GITHUB_TOKEN` does not
+trigger other workflows (GitHub's anti-recursion rule), which would silently
+break the `publish.yml` handoff. If releases stop triggering publishes, check
+that the App is still installed on this repo and its secrets haven't expired.
