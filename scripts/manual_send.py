@@ -24,8 +24,13 @@ adapter with no BSN or deliverer OIN involved at all::
         --from-party-id urn:osb:oin:<worth ventures oin> \\
         --to-party-id urn:osb:oin:<logius oin>
 
-Step 2 -- ``send``: builds the Berichtenbox XML, sends it, and polls the
-resulting message status::
+Step 2 -- ``send``: builds the Berichtenbox XML and sends it, then makes a
+short, best-effort attempt to spot the resulting notification in
+``/ebms/messages/unprocessed`` right away. Logius's technical connection
+manual gives no fixed turnaround for the GLOBE-R-BV-Result receipt (unlike
+AbonnementService's documented 4-hour SLA), so finding nothing yet is normal
+-- re-run ``poll-unprocessed`` (Step 3) later instead of treating that as a
+failure::
 
     uv run python scripts/manual_send.py send \\
         --base-url http://localhost:8080 \\
@@ -42,6 +47,39 @@ a bare OIN with no prefix will fail CPA party lookup (EbmsServerError:
 "No fromParty found for cpaId=..."), even though the CPA itself resolves.
 --deliverer-id (BerichtLeverancierID) is a separate, body-level field and is
 NOT prefixed -- it's the bare client-org OIN.
+
+Step 3 -- ``poll-unprocessed``: the real status-retrieval mechanism (the
+same one ``notifynl-api``'s ``messagebox_process_unprocessed_messages``
+Celery task uses in production) -- lists unprocessed envelopes, fetches and
+parses each one's ``BerichtVerwerkResponse`` XML, and prints the result.
+Read-only by default (never calls ``PATCH .../messages/{id}``, i.e. never
+marks an envelope processed), so it's safe to re-run repeatedly against a
+shared pre-prod instance without racing the real Celery beat task or other
+developers' in-flight tests. Pass ``--mark-processed`` only when you
+deliberately want to drain a specific envelope::
+
+    uv run python scripts/manual_send.py poll-unprocessed \\
+        --base-url http://localhost:8080
+
+Step 4 -- ``status`` (diagnostic only, expected to fail on this flow): calls
+``GET /ebms/messages/{message_id}/status`` directly. Per
+``eluinstra/ebms-core`` (branch ``ebms-core-2.20.x``), this does not read a
+local delivery-status column -- ``EbMSControllerHandler.getMessageStatus``
+sends a live, synchronous ebMS StatusRequest/StatusResponse SOAP round-trip
+to the *counterparty's* own MSH (``deliveryManager.sendMessage``, the same
+primitive ``ping`` uses), and even a valid response only ever carries the
+coarse transport-level RECEIVED/PROCESSED/FORWARDED status, never
+business-level delivery. Logius's own connection manual confirms this
+split explicitly: sending an ebMS Acknowledgment does not mean a message was
+correctly processed by the receiving side's software. On the GLOBE-R-BV push
+flow, Logius's ebms-core does not answer this StatusRequest at all, so this
+reliably raises ``EbmsServerError("No valid response received!")``
+regardless of real delivery outcome -- use ``poll-unprocessed`` instead for
+anything that matters::
+
+    uv run python scripts/manual_send.py status \\
+        --base-url http://localhost:8080 \\
+        --message-id <message id returned by send>
 """
 
 from __future__ import annotations
@@ -57,6 +95,7 @@ from ebms_adapter_client import (
     EbmsAdapterError,
     EbmsServerError,
 )
+from ebms_adapter_client.berichtenbox import ParsedBericht, parse_berichten_verwerk_response
 from ebms_adapter_client.berichtenbox.builder import (
     BerichtenboxContractConfig,
     build_berichten_xml,
@@ -117,36 +156,106 @@ def _run_send(args: argparse.Namespace) -> int:
 
     with EbmsAdapterClient(_build_config(args)) as client:
         message_id = client.send_message(message_request)
-        print(f"sent: message_id={message_id}")
-        _poll_status(client, message_id)
+        print(f"sent: message_id={message_id} notification_id={notification_id}")
+        _poll_for_notification(client, notification_id, attempts=args.attempts, delay_seconds=args.delay_seconds)
     return 0
 
 
-def _poll_status(client: EbmsAdapterClient, message_id: str, *, attempts: int = 3, delay_seconds: float = 1.0) -> None:
-    """Best-effort only: on at least one observed ebms-core deployment, GET
-    .../status consistently raises EbmsServerError("No valid response
-    received!") for this GLOBE-R-BV push flow, even for messages confirmed
-    delivered (SOAP Acknowledgment + StatusCode=204 in the adapter's own
-    logs, and arrival in the recipient's pre-production berichtenbox inbox).
-    So a failure here is NOT evidence the send failed -- this endpoint just
-    doesn't appear to return a valid status for this flow on that
-    deployment. Treat the adapter logs / recipient inbox as the source of
-    truth for delivery confirmation, not this call."""
-    for attempt in range(1, attempts + 1):
+def _find_bericht(client: EbmsAdapterClient, notification_id: str) -> ParsedBericht | None:
+    """Best-effort, read-only scan of the unprocessed envelope queue for a
+    ``Bericht`` matching ``notification_id``. Skips envelopes that fail to
+    fetch or parse -- ``poll-unprocessed`` is the tool for surfacing those
+    errors individually, this is just a quick "did it show up" check."""
+    for envelope_id in client.list_unprocessed_message_ids():
         try:
-            status = client.get_message_status(message_id)
-        except EbmsServerError as exc:
-            if attempt == attempts:
-                print(
-                    f"status: unavailable after {attempts} attempts ({exc}) -- this does NOT necessarily mean "
-                    "the send failed; check the adapter logs or the recipient's berichtenbox inbox instead",
-                    file=sys.stderr,
-                )
-                return
-            time.sleep(delay_seconds)
+            message = client.get_message(envelope_id)
+            batch = parse_berichten_verwerk_response(message.data_sources[0].content)
+        except Exception:  # noqa: S112 -- best-effort scan; poll-unprocessed reports per-envelope errors
             continue
-        print(f"status: {status.status.value} (timestamp={status.timestamp})")
-        return
+        for bericht in batch.messages:
+            if bericht.message_id == notification_id:
+                return bericht
+    return None
+
+
+def _poll_for_notification(
+    client: EbmsAdapterClient, notification_id: str, *, attempts: int, delay_seconds: float
+) -> None:
+    for attempt in range(1, attempts + 1):
+        bericht = _find_bericht(client, notification_id)
+        if bericht is not None:
+            print(f"status: process_code={bericht.process_code} (found in unprocessed envelope queue)")
+            return
+        if attempt < attempts:
+            time.sleep(delay_seconds)
+
+    print(
+        f"status: not seen yet after {attempts} attempt(s) -- this does NOT mean the send failed. "
+        "Logius gives no fixed turnaround for this receipt; re-run `poll-unprocessed` later and look for "
+        f"notification_id={notification_id}.",
+        file=sys.stderr,
+    )
+
+
+def _run_poll_unprocessed(args: argparse.Namespace) -> int:
+    with EbmsAdapterClient(_build_config(args)) as client:
+        envelope_ids = client.list_unprocessed_message_ids()
+        if not envelope_ids:
+            print("no unprocessed envelopes.")
+            return 0
+
+        print(f"{len(envelope_ids)} unprocessed envelope(s):")
+        for envelope_id in envelope_ids:
+            print(f"\n--- envelope {envelope_id} ---")
+            try:
+                message = client.get_message(envelope_id)
+                content = message.data_sources[0].content
+            except Exception as exc:
+                print(f"  failed to fetch: {exc}", file=sys.stderr)
+                continue
+
+            print(f"  raw content:\n{content.decode('utf-8', errors='replace')}")
+
+            try:
+                batch = parse_berichten_verwerk_response(content)
+            except Exception as exc:
+                print(f"  PARSE FAILED (BerichtVerwerkResponse shape mismatch?): {exc}", file=sys.stderr)
+                continue
+
+            print(
+                f"  batch_id={batch.batch_id} total_received={batch.total_received} "
+                f"successful_count={batch.successful_count} batch_success={batch.batch_success}"
+            )
+            for bericht in batch.messages:
+                print(f"    message_id={bericht.message_id} process_code={bericht.process_code}")
+
+            if args.mark_processed:
+                client.process_message(envelope_id)
+                print("  marked processed.")
+    return 0
+
+
+def _run_status(args: argparse.Namespace) -> int:
+    """Diagnostic only -- see the ``status`` subcommand's docstring section
+    (module-level, Step 4) for why this is expected to fail on the
+    GLOBE-R-BV push flow."""
+    with EbmsAdapterClient(_build_config(args)) as client:
+        for attempt in range(1, args.attempts + 1):
+            try:
+                status = client.get_message_status(args.message_id)
+            except EbmsServerError as exc:
+                if attempt == args.attempts:
+                    print(
+                        f"status: unavailable after {args.attempts} attempts ({exc}) -- expected on the "
+                        "GLOBE-R-BV push flow (see this command's --help); use `poll-unprocessed` instead",
+                        file=sys.stderr,
+                    )
+                    return 0
+                time.sleep(args.delay_seconds)
+                continue
+            print(f"status: {status.status.value} (timestamp={status.timestamp})")
+            return 0
+    return 0
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
@@ -158,7 +267,9 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     _add_envelope_args(ping_parser)
     ping_parser.set_defaults(func=_run_ping)
 
-    send_parser = subparsers.add_parser("send", help="Build, send, and poll the status of a Berichtenbox message.")
+    send_parser = subparsers.add_parser(
+        "send", help="Build, send, and make a best-effort check for a Berichtenbox message's result."
+    )
     _add_connection_args(send_parser)
     _add_envelope_args(send_parser)
     send_parser.add_argument("--deliverer-id", required=True, help="BerichtLeverancierID (client-org OIN)")
@@ -167,7 +278,33 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     send_parser.add_argument("--subject", default="Berichtenboxbericht")
     send_parser.add_argument("--notification-id", default=None, help="defaults to a generated UUID")
     send_parser.add_argument("--batch-id", default=None, help="defaults to a generated UUID")
+    send_parser.add_argument("--attempts", type=int, default=3)
+    send_parser.add_argument("--delay-seconds", type=float, default=1.0)
     send_parser.set_defaults(func=_run_send)
+
+    poll_parser = subparsers.add_parser(
+        "poll-unprocessed",
+        help="List, fetch and parse unprocessed envelopes -- the real status-retrieval mechanism.",
+    )
+    _add_connection_args(poll_parser)
+    poll_parser.add_argument(
+        "--mark-processed",
+        action="store_true",
+        default=False,
+        help="PATCH each envelope as processed after parsing it. Off by default: read-only, safe to "
+        "re-run against a shared instance without racing the real Celery task.",
+    )
+    poll_parser.set_defaults(func=_run_poll_unprocessed)
+
+    status_parser = subparsers.add_parser(
+        "status",
+        help="Diagnostic only: query GET .../status directly. Expected to fail on the GLOBE-R-BV push flow.",
+    )
+    _add_connection_args(status_parser)
+    status_parser.add_argument("--message-id", required=True)
+    status_parser.add_argument("--attempts", type=int, default=3)
+    status_parser.add_argument("--delay-seconds", type=float, default=1.0)
+    status_parser.set_defaults(func=_run_status)
 
     return parser.parse_args(argv)
 
