@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 authors = [{ name = "Worth Systems" }]
 requires-python = ">=3.11"
-keywords = ["ebms", "ebms-core", "berichtenbox", "notifynl"]
+keywords = ["ebms", "ebms-core", "berichtenbox"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

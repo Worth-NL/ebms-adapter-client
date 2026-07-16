@@ -33,7 +33,7 @@ class BerichtenboxAttachment:
 class BerichtenboxContractConfig:
     """Per-contract constants for the MijnOverheid Berichtenbox 2.0 GLOBE-R-BV
     integration. These vary by environment/contract, so they're supplied by
-    the caller (e.g. NotifyNL's own config) rather than hardcoded here."""
+    the caller's own configuration rather than hardcoded here."""
 
     cpa_id: str
     from_role: str = "SR"

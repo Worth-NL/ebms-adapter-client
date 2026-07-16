@@ -22,7 +22,7 @@ supported Python version matrix (see `.github/workflows/ci.yml`).
 
 - Keep changes focused and add/update tests for any behavioral change.
 - Update `CHANGELOG.md` under `[Unreleased]` for user-visible changes.
-- This package intentionally has no NotifyNL-specific code — keep it a
+- This package intentionally has no application-specific code — keep it a
   standalone client for `ebms-core`'s REST API and the Berichtenbox XML format.
 
 ## Releasing
