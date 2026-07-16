@@ -1,18 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ns3:BerichtVerwerkResponse xmlns:ns2="http://schemas.rdw.nl/GEB/BerichtVerwerkService/BerichtResultaat/Types/2009/01" xmlns:ns3="http://schemas.rdw.nl/GEB/BerichtVerwerkService/Types/2009/01">
   <BatchInformatie>
+    <BerichtLeverancierCode>00000000000000000000</BerichtLeverancierCode>
     <BatchID>batch-123</BatchID>
     <TotaalAantalOntvangenBerichten>2</TotaalAantalOntvangenBerichten>
     <AantalBerichtenSuccesvolVerwerkt>2</AantalBerichtenSuccesvolVerwerkt>
+    <AantalBerichtenGeenActieveBoxOfGeabonneertOpLeverancier>0</AantalBerichtenGeenActieveBoxOfGeabonneertOpLeverancier>
+    <AantalBerichtenMetTechnischProbleem>0</AantalBerichtenMetTechnischProbleem>
+    <AantalBerichtenBerichtTypeNietCorrect>0</AantalBerichtenBerichtTypeNietCorrect>
+    <AantalBerichtenPublicatieDatumNietCorrect>0</AantalBerichtenPublicatieDatumNietCorrect>
+    <AantalBerichtenAanmaakDatumNietCorrect>0</AantalBerichtenAanmaakDatumNietCorrect>
+    <DatumOntvangen>2024-01-01T09:00:00.000Z</DatumOntvangen>
+    <DatumVerwerkt>2024-01-01T09:01:30.000Z</DatumVerwerkt>
   </BatchInformatie>
   <Berichten>
     <ns2:Bericht>
       <BerichtID>11111111-1111-1111-1111-111111111111</BerichtID>
+      <BerichtType>bericht</BerichtType>
       <VerwerkingsCode>00</VerwerkingsCode>
+      <Stadium>NA</Stadium>
     </ns2:Bericht>
     <ns2:Bericht>
       <BerichtID>22222222-2222-2222-2222-222222222222</BerichtID>
+      <BerichtType>bericht</BerichtType>
       <VerwerkingsCode>00</VerwerkingsCode>
+      <Stadium>NA</Stadium>
     </ns2:Bericht>
   </Berichten>
 </ns3:BerichtVerwerkResponse>
