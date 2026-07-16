@@ -1,10 +1,14 @@
 # ebms-adapter-client
 
-[![PyPI](https://img.shields.io/pypi/v/ebms-adapter-client.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/ebms-adapter-client/)
-[![Python versions](https://img.shields.io/pypi/pyversions/ebms-adapter-client.svg?style=for-the-badge&logo=python&logoColor=white)](https://pypi.org/project/ebms-adapter-client/)
-[![CI](https://img.shields.io/github/actions/workflow/status/Worth-NL/ebms-adapter-client/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Worth-NL/ebms-adapter-client/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
-[![Ruff](https://img.shields.io/endpoint?style=for-the-badge&url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+<p align="center">
+  <a href="https://pypi.org/project/ebms-adapter-client/"><img alt="PyPI" src="https://img.shields.io/pypi/v/ebms-adapter-client.svg?style=for-the-badge&logo=pypi&logoColor=white"></a>
+  <a href="https://pypi.org/project/ebms-adapter-client/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/ebms-adapter-client.svg?style=for-the-badge&logo=python&logoColor=white"></a>
+  <a href="https://github.com/Worth-NL/ebms-adapter-client/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Worth-NL/ebms-adapter-client/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white"></a>
+  <a href="https://github.com/astral-sh/uv"><img alt="uv" src="https://img.shields.io/endpoint?style=for-the-badge&url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json"></a>
+  <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?style=for-the-badge&url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
+  <a href="https://mijn.overheid.nl/"><img alt="mijn | overheid" src="https://img.shields.io/badge/mijn-overheid-f3f3f3?style=for-the-badge&labelColor=154273"></a>
+</p>
 
 A minimal Python client for the REST API exposed by
 [eluinstra/ebms-core](https://github.com/eluinstra/ebms-core) (branch
