@@ -59,15 +59,16 @@ def parse_berichten_verwerk_response(xml_content: bytes | str) -> ParsedBerichte
     """Parses a ``BerichtVerwerkResponse`` document (as returned in a
     ``Message``'s ``data_sources[0].content``) into a :class:`ParsedBerichtenBatch`.
 
-    Matches tag names by local name only (ignoring namespace prefixes), since
-    only the *request* schema's namespaces were confirmed from the reference
-    implementation -- the *response* schema's exact namespace was not
-    available at implementation time.
-
-    TODO(verify): confirm the exact BerichtVerwerkResponse XSD/namespace
-    against a live or sample ebms-core response before go-live. Until then,
-    this is validated only against the hand-authored fixture in
-    tests/fixtures/berichten_verwerk_response_sample.xml.
+    Matches tag names by local name only (ignoring namespace prefixes) --
+    confirmed against real BerichtVerwerkResponse envelopes from a live
+    ebms-core deployment, which parsed without error. A live response's
+    ``Bericht`` elements use the namespace
+    ``http://schemas.rdw.nl/GEB/BerichtVerwerkService/BerichtResultaat/Types/2009/01``,
+    not ``http://schemas.rdw.nl/GEB/BerichtenProsessor/Bericht/Types/2009/01``
+    (the namespace this package's own request-side builder uses for its
+    outbound ``Bericht`` elements, ``NS_BERICHT`` in ``berichtenbox/builder.py``)
+    -- matching by local name only is what makes this robust to that
+    difference, not a gap to close.
     """
     root = DefusedET.fromstring(xml_content)
     if "BerichtVerwerkResponse" not in _local_name(root.tag):
