@@ -24,3 +24,13 @@ class EbmsServerError(EbmsAdapterError):
 
 class EbmsConnectionError(EbmsAdapterError):
     """Raised when ebms-core could not be reached at all (network/timeout)."""
+
+
+class BerichtenboxValidationError(EbmsAdapterError):
+    """Raised when a Berichtenbox business message would violate a documented
+    constraint (field length/format, attachment count/size) before any
+    network call is made -- retrying an unmodified request will never
+    succeed."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
