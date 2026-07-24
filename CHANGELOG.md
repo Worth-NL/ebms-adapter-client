@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-24
+
+### Added
+
+- `BerichtenboxValidationError`, raised by `build_berichten_xml` before any
+  network call if the inputs would violate a documented Berichtenbox
+  constraint: BSN (`GebruikerID`)/`BerichtLeverancierID` format, subject
+  (`Onderwerp`)/message (`Berichttekst`) length, or attachment count/size.
+- `build_berichten_xml` now encodes embedded line breaks in `Berichttekst`
+  as the literal `\r\n` sequence Berichtenbox requires.
+
+### Changed
+
+- **Breaking**: `build_berichten_xml` and `build_message_request`'s
+  `notification_id` parameter is renamed to `bericht_id`, matching
+  Logius's own `BerichtID` field instead of a NotifyNL-domain term -- this
+  package is a generic `ebms-core` client, not NotifyNL-specific.
+- Fixed the per-message `BerichtInformatie/BatchID` element to repeat the
+  batch-level `batch_id` instead of the message id, per the Technische
+  Aansluithandleiding MijnOverheid Berichtenbox (v1.6.3, section 5.3).
+
 ## [0.2.0] - 2026-07-16
 
 ### Added
@@ -37,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ebms_adapter_client.berichtenbox` sub-package for building and parsing
   MijnOverheid Berichtenbox 2.0 GLOBE-R-BV XML messages.
 
-[Unreleased]: https://github.com/Worth-NL/ebms-adapter-client/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Worth-NL/ebms-adapter-client/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Worth-NL/ebms-adapter-client/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Worth-NL/ebms-adapter-client/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Worth-NL/ebms-adapter-client/releases/tag/v0.1.0
