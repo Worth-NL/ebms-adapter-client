@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import cast
 from xml.etree import ElementTree as ET
 
+from ebms_adapter_client.exceptions import BerichtenboxValidationError
 from ebms_adapter_client.models import DataSource, MessageRequest, MessageRequestProperties
 
 NS_BERICHTEN = "http://schemas.rdw.nl/GEB/BerichtVerwerkService/Types/2009/01"
@@ -15,6 +16,31 @@ _DEFAULT_SUBJECT = "Berichtenboxbericht"
 _DEFAULT_MESSAGE_TYPE = "bericht"
 _DEFAULT_SOORT_GEBRUIKER = "Burger"
 _DEFAULT_BIJLAGE_TYPE = "Pdf"
+
+# Constraints from Logius's "Technische Aansluithandleiding MijnOverheid
+# Berichtenbox" (v1.6.3, section 5.3) and, for the attachment description,
+# the 2022-04-06 update that raised it from 40 to 128 characters (see
+# "Langere bestandsnaam mogelijk bij bijlage MijnOverheid Berichtenbox",
+# logius.nl) -- confirming the source PDF predates that change.
+MAX_ONDERWERP_LENGTH = 50
+MAX_BERICHTTEKST_LENGTH = 4_000
+MAX_OMSCHRIJVING_LENGTH = 128
+GEBRUIKER_ID_LENGTH = 9
+BERICHT_LEVERANCIER_ID_LENGTH = 20
+MAX_PERSONALISED_ATTACHMENTS = 2
+# 500 kB combined, measured before base64 encoding (which inflates size by
+# ~33%) -- using the SI (1000-based) kB reading is the conservative choice,
+# since it rejects slightly earlier than a 1024-based reading would.
+MAX_PERSONALISED_ATTACHMENT_BYTES = 500_000
+
+
+def _encode_line_breaks(text: str) -> str:
+    """Berichtenbox requires line breaks in Berichttekst to be encoded as the
+    literal four-character sequence ``\\r\\n`` (section 5.7) -- an embedded
+    real CR/LF byte is valid XML but is not rendered as a line break by the
+    Berichtenbox UI, so it must be rewritten here rather than left to the
+    caller."""
+    return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\r\\n")
 
 
 @dataclass(frozen=True)
@@ -48,10 +74,65 @@ def _sub(parent: ET.Element, tag: str, text: str) -> ET.Element:
     return element
 
 
+def _validate_berichten_xml_inputs(
+    *,
+    bsn: str,
+    subject: str,
+    encoded_message: str,
+    deliverer_id: str,
+    attachments: list[BerichtenboxAttachment],
+) -> None:
+    """Fails fast, before any network call, on any documented Berichtenbox
+    constraint an outbound message would otherwise violate -- letting
+    ebms-core's response ever tell us instead risks its parser also failing
+    to extract our own BerichtID/BatchID, leaving the sending side with no
+    way to correlate the rejection back to a specific message at all."""
+    if not (len(bsn) == GEBRUIKER_ID_LENGTH and bsn.isdigit()):
+        raise BerichtenboxValidationError(f"bsn (GebruikerID) must be exactly {GEBRUIKER_ID_LENGTH} digits: {bsn!r}")
+
+    if not (len(deliverer_id) == BERICHT_LEVERANCIER_ID_LENGTH and deliverer_id.isdigit()):
+        raise BerichtenboxValidationError(
+            f"deliverer_id (BerichtLeverancierID) must be exactly {BERICHT_LEVERANCIER_ID_LENGTH} digits: "
+            f"{deliverer_id!r}"
+        )
+
+    if len(subject) > MAX_ONDERWERP_LENGTH:
+        raise BerichtenboxValidationError(
+            f"subject (Onderwerp) must be at most {MAX_ONDERWERP_LENGTH} characters, got {len(subject)}"
+        )
+
+    if len(encoded_message) > MAX_BERICHTTEKST_LENGTH:
+        raise BerichtenboxValidationError(
+            f"message (Berichttekst) must be at most {MAX_BERICHTTEKST_LENGTH} characters after line-break "
+            f"encoding, got {len(encoded_message)}"
+        )
+
+    if len(attachments) > MAX_PERSONALISED_ATTACHMENTS:
+        raise BerichtenboxValidationError(
+            f"a Berichtenbox message may have at most {MAX_PERSONALISED_ATTACHMENTS} personalised attachments, "
+            f"got {len(attachments)}"
+        )
+
+    total_attachment_bytes = sum(len(attachment.content) for attachment in attachments)
+    if total_attachment_bytes > MAX_PERSONALISED_ATTACHMENT_BYTES:
+        raise BerichtenboxValidationError(
+            f"combined attachment size must be at most {MAX_PERSONALISED_ATTACHMENT_BYTES} bytes before base64 "
+            f"encoding, got {total_attachment_bytes}"
+        )
+
+    for attachment in attachments:
+        description = attachment.description or attachment.filename
+        if len(description) > MAX_OMSCHRIJVING_LENGTH:
+            raise BerichtenboxValidationError(
+                f"attachment description/filename (Omschrijving) must be at most {MAX_OMSCHRIJVING_LENGTH} "
+                f"characters, got {len(description)!r} for {attachment.filename!r}"
+            )
+
+
 def build_berichten_xml(
     *,
     batch_id: str,
-    notification_id: str,
+    bericht_id: str,
     bsn: str,
     message: str,
     subject: str = _DEFAULT_SUBJECT,
@@ -67,7 +148,22 @@ def build_berichten_xml(
     which is not safe for arbitrary message/subject/bsn content). Returns raw
     UTF-8 XML bytes -- NOT Base64 -- since ``DataSource.to_dict()`` performs
     its own Base64 encoding of ``content``.
+
+    Raises ``BerichtenboxValidationError`` if the inputs would violate a
+    documented Berichtenbox constraint (field length/format, attachment
+    count/size) -- callers should treat this as non-retryable, since nothing
+    about the failure resolves by resending the same input.
     """
+    attachments = attachments or []
+    encoded_message = _encode_line_breaks(message)
+    _validate_berichten_xml_inputs(
+        bsn=bsn,
+        subject=subject,
+        encoded_message=encoded_message,
+        deliverer_id=deliverer_id,
+        attachments=attachments,
+    )
+
     ET.register_namespace("", NS_BERICHTEN)
     # ElementTree reserves "ns\d+" prefixes for its own auto-generation, so a
     # literal "ns1" prefix (as used by the reference implementation) can't be
@@ -84,11 +180,15 @@ def build_berichten_xml(
 
     bericht = ET.SubElement(root, f"{{{NS_BERICHT}}}Bericht")
     bericht_informatie = ET.SubElement(bericht, f"{{{NS_BERICHT}}}BerichtInformatie")
-    _sub(bericht_informatie, f"{{{NS_BERICHT}}}BatchID", notification_id)
-    _sub(bericht_informatie, f"{{{NS_BERICHT}}}BerichtID", notification_id)
+    # Per Logius's "Technische Aansluithandleiding MijnOverheid Berichtenbox" (v1.6.3,
+    # section 5.3): "Het betreffende BatchID moet worden herhaald in ieder individueel
+    # bericht" -- the per-message BatchID must repeat the batch-level one, not the
+    # per-message BerichtID.
+    _sub(bericht_informatie, f"{{{NS_BERICHT}}}BatchID", batch_id)
+    _sub(bericht_informatie, f"{{{NS_BERICHT}}}BerichtID", bericht_id)
     _sub(bericht_informatie, f"{{{NS_BERICHT}}}BerichtType", message_type)
     _sub(bericht_informatie, f"{{{NS_BERICHT}}}Onderwerp", subject)
-    _sub(bericht_informatie, f"{{{NS_BERICHT}}}BerichtTekst", message)
+    _sub(bericht_informatie, f"{{{NS_BERICHT}}}BerichtTekst", encoded_message)
     _sub(bericht_informatie, f"{{{NS_BERICHT}}}GebruikerID", bsn)
     _sub(bericht_informatie, f"{{{NS_BERICHT}}}SoortGebruiker", _DEFAULT_SOORT_GEBRUIKER)
 
@@ -109,7 +209,7 @@ def build_message_request(
     contract: BerichtenboxContractConfig,
     from_party_id: str,
     to_party_id: str,
-    notification_id: str,
+    bericht_id: str,
     xml_content: bytes,
 ) -> MessageRequest:
     """Wraps ``build_berichten_xml``'s output into a ``MessageRequest`` ready
@@ -127,7 +227,7 @@ def build_message_request(
     data_source = DataSource(
         content_type="text/xml",
         content=xml_content,
-        name=f"bericht-{notification_id}.xml",
-        content_id=notification_id,
+        name=f"bericht-{bericht_id}.xml",
+        content_id=bericht_id,
     )
     return MessageRequest(properties=properties, data_sources=[data_source])

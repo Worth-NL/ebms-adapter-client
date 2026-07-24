@@ -25,7 +25,7 @@ adapter with no BSN or deliverer OIN involved at all::
         --to-party-id urn:osb:oin:<logius oin>
 
 Step 2 -- ``send``: builds the Berichtenbox XML and sends it, then makes a
-short, best-effort attempt to spot the resulting notification in
+short, best-effort attempt to spot the resulting message in
 ``/ebms/messages/unprocessed`` right away. Logius's technical connection
 manual gives no fixed turnaround for the GLOBE-R-BV-Result receipt (unlike
 AbonnementService's documented 4-hour SLA), so finding nothing yet is normal
@@ -135,12 +135,12 @@ def _run_ping(args: argparse.Namespace) -> int:
 
 
 def _run_send(args: argparse.Namespace) -> int:
-    notification_id = args.notification_id or str(uuid.uuid4())
+    bericht_id = args.bericht_id or str(uuid.uuid4())
     batch_id = args.batch_id or str(uuid.uuid4())
 
     xml_content = build_berichten_xml(
         batch_id=batch_id,
-        notification_id=notification_id,
+        bericht_id=bericht_id,
         bsn=args.bsn,
         message=args.message,
         subject=args.subject,
@@ -150,20 +150,20 @@ def _run_send(args: argparse.Namespace) -> int:
         contract=BerichtenboxContractConfig(cpa_id=args.cpa_id),
         from_party_id=args.from_party_id,
         to_party_id=args.to_party_id,
-        notification_id=notification_id,
+        bericht_id=bericht_id,
         xml_content=xml_content,
     )
 
     with EbmsAdapterClient(_build_config(args)) as client:
         message_id = client.send_message(message_request)
-        print(f"sent: message_id={message_id} notification_id={notification_id}")
-        _poll_for_notification(client, notification_id, attempts=args.attempts, delay_seconds=args.delay_seconds)
+        print(f"sent: message_id={message_id} bericht_id={bericht_id}")
+        _poll_for_bericht_result(client, bericht_id, attempts=args.attempts, delay_seconds=args.delay_seconds)
     return 0
 
 
-def _find_bericht(client: EbmsAdapterClient, notification_id: str) -> ParsedBericht | None:
+def _find_bericht(client: EbmsAdapterClient, bericht_id: str) -> ParsedBericht | None:
     """Best-effort, read-only scan of the unprocessed envelope queue for a
-    ``Bericht`` matching ``notification_id``. Skips envelopes that fail to
+    ``Bericht`` matching ``bericht_id``. Skips envelopes that fail to
     fetch or parse -- ``poll-unprocessed`` is the tool for surfacing those
     errors individually, this is just a quick "did it show up" check."""
     for envelope_id in client.list_unprocessed_message_ids():
@@ -173,16 +173,16 @@ def _find_bericht(client: EbmsAdapterClient, notification_id: str) -> ParsedBeri
         except Exception:  # noqa: S112 -- best-effort scan; poll-unprocessed reports per-envelope errors
             continue
         for bericht in batch.messages:
-            if bericht.message_id == notification_id:
+            if bericht.message_id == bericht_id:
                 return bericht
     return None
 
 
-def _poll_for_notification(
-    client: EbmsAdapterClient, notification_id: str, *, attempts: int, delay_seconds: float
+def _poll_for_bericht_result(
+    client: EbmsAdapterClient, bericht_id: str, *, attempts: int, delay_seconds: float
 ) -> None:
     for attempt in range(1, attempts + 1):
-        bericht = _find_bericht(client, notification_id)
+        bericht = _find_bericht(client, bericht_id)
         if bericht is not None:
             print(f"status: process_code={bericht.process_code} (found in unprocessed envelope queue)")
             return
@@ -192,7 +192,7 @@ def _poll_for_notification(
     print(
         f"status: not seen yet after {attempts} attempt(s) -- this does NOT mean the send failed. "
         "Logius gives no fixed turnaround for this receipt; re-run `poll-unprocessed` later and look for "
-        f"notification_id={notification_id}.",
+        f"bericht_id={bericht_id}.",
         file=sys.stderr,
     )
 
@@ -276,7 +276,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     send_parser.add_argument("--bsn", required=True)
     send_parser.add_argument("--message", required=True)
     send_parser.add_argument("--subject", default="Berichtenboxbericht")
-    send_parser.add_argument("--notification-id", default=None, help="defaults to a generated UUID")
+    send_parser.add_argument("--bericht-id", default=None, help="defaults to a generated UUID")
     send_parser.add_argument("--batch-id", default=None, help="defaults to a generated UUID")
     send_parser.add_argument("--attempts", type=int, default=3)
     send_parser.add_argument("--delay-seconds", type=float, default=1.0)
