@@ -54,7 +54,7 @@ from ebms_adapter_client import (
 
 config = EbmsAdapterClientConfig(
     base_url="http://localhost:8080",
-    username="user", # omit if the server runs without --authentication
+    username="user",  # omit if the server runs without --authentication
     password="pass",
 )
 
