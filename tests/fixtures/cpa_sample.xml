@@ -13,8 +13,10 @@
       <tp:Role tp:name="SP" xlink:type="simple" xlink:href="http://example.invalid/MijnOverheid_BB_R"/>
       <tp:ServiceBinding>
         <tp:Service tp:type="urn:osb:services">MIJNOVERHEID.ebMS.BB.2.0</tp:Service>
-        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SP_S_GLOBE-R-A-Result" tp:action="GLOBE-R-A-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Result</tp:OtherPartyActionBinding><tp:ThisPartyActionBinding tp:id="SP_S_GLOBE-R-BV-Result" tp:action="GLOBE-R-BV-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Result</tp:OtherPartyActionBinding></tp:CanSend>
-        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SP_R_GLOBE-R-A-Request" tp:action="GLOBE-R-A-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Request</tp:OtherPartyActionBinding><tp:ThisPartyActionBinding tp:id="SP_R_GLOBE-R-BV-Request" tp:action="GLOBE-R-BV-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Request</tp:OtherPartyActionBinding></tp:CanReceive>
+        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SP_S_GLOBE-R-A-Result" tp:action="GLOBE-R-A-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Result</tp:OtherPartyActionBinding></tp:CanSend>
+        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SP_S_GLOBE-R-BV-Result" tp:action="GLOBE-R-BV-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Result</tp:OtherPartyActionBinding></tp:CanSend>
+        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SP_R_GLOBE-R-A-Request" tp:action="GLOBE-R-A-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Request</tp:OtherPartyActionBinding></tp:CanReceive>
+        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SP_R_GLOBE-R-BV-Request" tp:action="GLOBE-R-BV-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Request</tp:OtherPartyActionBinding></tp:CanReceive>
       </tp:ServiceBinding>
     </tp:CollaborationRole>
     <tp:Certificate tp:certId="SP_ServerCert">
@@ -25,7 +27,7 @@
             <ds:X509SerialNumber>1001</ds:X509SerialNumber>
           </ds:X509IssuerSerial>
           <ds:X509SubjectName>CN=sp.example.invalid,O=Example</ds:X509SubjectName>
-          <ds:X509Certificate>MIIBSjCB8qADAgECAgID6TAKBggqhkjOPQQDAjAvMRswGQYDVQQDDBJzcC5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwHhcNMjYwMTAxMDAwMDAwWhcNMjgwMzMxMTM0OTU5WjAvMRswGQYDVQQDDBJzcC5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASu3NY/eeggMS2xliKi/BVjmFosNqS0XXaxK2YV2yAfj7OcbVzXV7qZeUeI0mFMyImacyXQyGhj6FIPmkzaYMjzMAoGCCqGSM49BAMCA0cAMEQCH1RoJhiC1FyXjt+qgUDZTpHsD9Wf2xsEfoYnKp2smAACIQC91DLTfg070YH6q2Bmwi0yOvvGk5+dthFLxzLw52hIxw==</ds:X509Certificate>
+          <ds:X509Certificate>MIIBTDCB8qADAgECAgID6TAKBggqhkjOPQQDAjAvMRswGQYDVQQDDBJzcC5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwHhcNMjYwMTAxMDAwMDAwWhcNMjgwMzMxMTM0OTU5WjAvMRswGQYDVQQDDBJzcC5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQiwV/p8WePYG1XSUvXq/Zfbp2sLGL/c9+1fvhwpcNOAlGtfX1KtLw7XVDL4WowKIPT77UOwWLuo5gGVmrJNZWUMAoGCCqGSM49BAMCA0kAMEYCIQCTkWbiKDspEnoUPBFNFJ6bpHiqVSITUUeRr/qxawu6JQIhAKe7UOE6l8uFHC7O2SqOt4Am+qozwE++xIth2w+0pD2R</ds:X509Certificate>
         </ds:X509Data>
       </ds:KeyInfo>
     </tp:Certificate>
@@ -43,8 +45,10 @@
       <tp:Role tp:name="SR" xlink:type="simple" xlink:href="http://example.invalid/MijnOverheid_BB_R"/>
       <tp:ServiceBinding>
         <tp:Service tp:type="urn:osb:services">MIJNOVERHEID.ebMS.BB.2.0</tp:Service>
-        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SR_S_GLOBE-R-A-Request" tp:action="GLOBE-R-A-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Request</tp:OtherPartyActionBinding><tp:ThisPartyActionBinding tp:id="SR_S_GLOBE-R-BV-Request" tp:action="GLOBE-R-BV-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Request</tp:OtherPartyActionBinding></tp:CanSend>
-        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SR_R_GLOBE-R-A-Result" tp:action="GLOBE-R-A-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Result</tp:OtherPartyActionBinding><tp:ThisPartyActionBinding tp:id="SR_R_GLOBE-R-BV-Result" tp:action="GLOBE-R-BV-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Result</tp:OtherPartyActionBinding></tp:CanReceive>
+        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SR_S_GLOBE-R-A-Request" tp:action="GLOBE-R-A-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Request</tp:OtherPartyActionBinding></tp:CanSend>
+        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SR_S_GLOBE-R-BV-Request" tp:action="GLOBE-R-BV-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Request</tp:OtherPartyActionBinding></tp:CanSend>
+        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SR_R_GLOBE-R-A-Result" tp:action="GLOBE-R-A-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Result</tp:OtherPartyActionBinding></tp:CanReceive>
+        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SR_R_GLOBE-R-BV-Result" tp:action="GLOBE-R-BV-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Result</tp:OtherPartyActionBinding></tp:CanReceive>
       </tp:ServiceBinding>
     </tp:CollaborationRole>
     <tp:Certificate tp:certId="SR_ServerCert">
@@ -55,7 +59,7 @@
             <ds:X509SerialNumber>2002</ds:X509SerialNumber>
           </ds:X509IssuerSerial>
           <ds:X509SubjectName>CN=sr.example.invalid,O=Example</ds:X509SubjectName>
-          <ds:X509Certificate>MIIBSzCB8qADAgECAgIH0jAKBggqhkjOPQQDAjAvMRswGQYDVQQDDBJzci5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwHhcNMjYwMTAxMDAwMDAwWhcNMjcwMTE2MTIwMDAwWjAvMRswGQYDVQQDDBJzci5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARBmTU85y4cxgNS3YaxOJwng4my0Ybjyx5JhG4Ash7GGF7IcoIjYWo6pOXaI3TGY3J0aQMiCsXZxVZfQ/3IoXw7MAoGCCqGSM49BAMCA0gAMEUCIEOEKbaWTvht3X9imqTyadUBnubEeFmXd+Ze5iuKXqP/AiEA4PtHUu7QmWMsuTHsHnwMINjxBM2LS4pHOTHZ6YCfJcc=</ds:X509Certificate>
+          <ds:X509Certificate>MIIBSzCB8qADAgECAgIH0jAKBggqhkjOPQQDAjAvMRswGQYDVQQDDBJzci5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwHhcNMjYwMTAxMDAwMDAwWhcNMjcwMTE2MTIwMDAwWjAvMRswGQYDVQQDDBJzci5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAREUeQC5Psfis/pgg0gV89AisRxih2tNo2EEDks2dXn6EaTXhj10YgLz14qRo0D+hV6W+NXXxtGbsF5kkwhHQj8MAoGCCqGSM49BAMCA0gAMEUCID1hoNEbCoUXY38ijyukgHpj4JFxpAkhzzj02rO9EyxvAiEA3rgC8XpUHFJ+Z+Exe3cjsCI8FKgaEf6Jo7bARJrq2g8=</ds:X509Certificate>
         </ds:X509Data>
       </ds:KeyInfo>
     </tp:Certificate>

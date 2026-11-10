@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from urllib.parse import urlsplit
@@ -17,6 +18,8 @@ from xml.etree import ElementTree as ET
 from cryptography import x509
 from defusedxml import DefusedXmlException
 from defusedxml import ElementTree as DefusedET
+
+CPA_STATUS_PROPOSED = "proposed"
 
 
 class CpaParseError(ValueError):
@@ -84,7 +87,13 @@ class CpaSummary:
     parties: tuple[CpaParty, ...]
 
     def is_active(self, at: datetime) -> bool:
-        return self.start <= at <= self.end
+        """
+        Whether the CPA can be used at `at`: not `proposed`, and Start <= `at` < End. ebms-core rejects a proposed or
+        ended CPA the same way (CPAValidator); it doesn't check Start, this does. A naive `at` is read as UTC, as Start
+        and End are.
+        """
+        at = at if at.tzinfo else at.replace(tzinfo=UTC)
+        return self.status != CPA_STATUS_PROPOSED and self.start <= at < self.end
 
     def find_party(self, party_id: str) -> CpaParty | None:
         return next((party for party in self.parties if party.has_party_id(party_id)), None)
@@ -133,36 +142,47 @@ def _parse_datetime(value: str | None, field: str) -> datetime:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
+def _first(values: Iterable[str | None]) -> str | None:
+    return next((value for value in values if value), None)
+
+
 def _parse_certificate(element: ET.Element) -> CpaCertificate:
-    x509_data = next(iter(_descendants(element, "X509Data")), None)
-    subject = issuer = serial_number = None
+    cert_id = _attr(element, "certId") or ""
+    # Like ebms-core (CPAUtils.getX509Certificate), look through every X509Data element, not only the first.
+    x509_data = _descendants(element, "X509Data")
+    issuer_serials = [issuer_serial for data in x509_data for issuer_serial in _children(data, "X509IssuerSerial")]
+    subject = _first(_text(_child(data, "X509SubjectName")) for data in x509_data)
+    issuer = _first(_text(_child(issuer_serial, "X509IssuerName")) for issuer_serial in issuer_serials)
+    serial_number = _first(_text(_child(issuer_serial, "X509SerialNumber")) for issuer_serial in issuer_serials)
+    encoded = _first(_text(certificate) for data in x509_data for certificate in _children(data, "X509Certificate"))
     not_after = None
-    if x509_data is not None:
-        subject = _text(_child(x509_data, "X509SubjectName"))
-        issuer_serial = _child(x509_data, "X509IssuerSerial")
-        if issuer_serial is not None:
-            issuer = _text(_child(issuer_serial, "X509IssuerName"))
-            serial_number = _text(_child(issuer_serial, "X509SerialNumber"))
-        encoded = _text(_child(x509_data, "X509Certificate"))
-        if encoded:
-            try:
-                certificate = x509.load_der_x509_certificate(base64.b64decode("".join(encoded.split()), validate=True))
-            except (binascii.Error, ValueError) as exc:
-                raise CpaParseError(
-                    f"Certificate {_attr(element, 'certId')!r} is not a valid X.509 certificate"
-                ) from exc
-            # The embedded certificate is authoritative; the X509Data names are only descriptive copies of it.
+    if encoded:
+        try:
+            certificate = x509.load_der_x509_certificate(base64.b64decode("".join(encoded.split()), validate=True))
+            # The embedded certificate is authoritative; the X509Data names are only descriptive copies of it. Its
+            # fields are decoded on access, so a corrupt name or date only fails here.
             subject = certificate.subject.rfc4514_string()
             issuer = certificate.issuer.rfc4514_string()
             serial_number = str(certificate.serial_number)
             not_after = certificate.not_valid_after_utc
+        except (binascii.Error, ValueError, x509.InvalidVersion) as exc:
+            raise CpaParseError(f"Certificate {cert_id!r} is not a valid X.509 certificate") from exc
     return CpaCertificate(
-        cert_id=_attr(element, "certId") or "",
+        cert_id=cert_id,
         subject=subject,
         issuer=issuer,
         serial_number=serial_number,
         not_after=not_after,
     )
+
+
+def _parse_endpoint(uri: str) -> str:
+    try:
+        # urlsplit rejects an invalid IPv6 host; reading the port rejects a non-numeric or out-of-range port
+        _ = urlsplit(uri).port
+    except ValueError as exc:
+        raise CpaParseError(f"Endpoint {uri!r} is not a valid URL") from exc
+    return uri
 
 
 def _actions(parent: ET.Element | None) -> tuple[str, ...]:
@@ -202,7 +222,9 @@ def _parse_party(element: ET.Element) -> CpaParty:
         for party_id in _children(element, "PartyId")
         if (value := _text(party_id))
     )
-    endpoints = tuple(uri for endpoint in _descendants(element, "Endpoint") if (uri := _attr(endpoint, "uri")))
+    endpoints = tuple(
+        _parse_endpoint(uri) for endpoint in _descendants(element, "Endpoint") if (uri := _attr(endpoint, "uri"))
+    )
     return CpaParty(
         name=_attr(element, "partyName"),
         party_ids=party_ids,
@@ -216,7 +238,7 @@ def parse_cpa_summary(cpa_xml: str | bytes) -> CpaSummary:
     """Summarises a CPPA 2.0 ``CollaborationProtocolAgreement``.
 
     Raises ``CpaParseError`` when the XML is malformed, uses forbidden constructs (entity expansion, external
-    references) or lacks the CPA id, Start/End or parties.
+    references), lacks the CPA id, Start/End or parties, or holds an invalid endpoint URL or certificate.
     """
     try:
         root = DefusedET.fromstring(cpa_xml)

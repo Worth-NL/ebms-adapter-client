@@ -1,8 +1,11 @@
+import base64
 import re
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from cryptography import x509
+from defusedxml import EntitiesForbidden
 
 from ebms_adapter_client import CpaParseError, CpaPartyId, parse_cpa_summary
 
@@ -103,12 +106,23 @@ def test_can_send(action, process, expected):
     [
         (datetime(2026, 11, 4, 23, 59, 59, tzinfo=UTC), False),
         (datetime(2026, 11, 5, tzinfo=UTC), True),
-        (datetime(2028, 3, 31, 13, 49, 59, tzinfo=UTC), True),
-        (datetime(2028, 3, 31, 13, 50, tzinfo=UTC), False),
+        (datetime(2028, 3, 31, 13, 49, 58, tzinfo=UTC), True),
+        # End is exclusive, as in ebms-core's CPAValidator
+        (datetime(2028, 3, 31, 13, 49, 59, tzinfo=UTC), False),
+        # a naive date-time is read as UTC, like Start and End
+        (datetime(2026, 11, 5), True),
+        (datetime(2028, 3, 31, 13, 49, 59), False),
     ],
 )
 def test_is_active(at, expected):
     assert parse_cpa_summary(SAMPLE_CPA).is_active(at) is expected
+
+
+def test_a_proposed_cpa_is_never_active():
+    summary = parse_cpa_summary(SAMPLE_CPA.replace('tp:value="agreed"', 'tp:value="proposed"'))
+
+    assert summary.status == "proposed"
+    assert summary.is_active(datetime(2027, 1, 1, tzinfo=UTC)) is False
 
 
 def test_naive_start_and_end_are_read_as_utc():
@@ -121,11 +135,6 @@ def test_naive_start_and_end_are_read_as_utc():
     ("cpa_xml", "message"),
     [
         ("<not-closed>", "not well-formed"),
-        (
-            '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">]>'
-            "<tp:CollaborationProtocolAgreement>&lol;</tp:CollaborationProtocolAgreement>",
-            "not well-formed or safe",
-        ),
         ("<Something/>", "Expected a CollaborationProtocolAgreement"),
         (SAMPLE_CPA.replace(' tp:cpaid="', ' tp:other="'), "no cpaid"),
         (SAMPLE_CPA.replace("<tp:Start>2026-11-05T00:00:00Z</tp:Start>", ""), "no Start"),
@@ -135,7 +144,6 @@ def test_naive_start_and_end_are_read_as_utc():
     ],
     ids=[
         "malformed",
-        "entity-declaration",
         "wrong-root",
         "no-cpaid",
         "no-start",
@@ -147,3 +155,60 @@ def test_naive_start_and_end_are_read_as_utc():
 def test_parse_cpa_summary_rejects(cpa_xml, message):
     with pytest.raises(CpaParseError, match=message):
         parse_cpa_summary(cpa_xml)
+
+
+def test_parse_cpa_summary_refuses_entity_declarations():
+    # well-formed XML, so only defusedxml stops it
+    cpa_xml = (
+        '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">]>'
+        '<tp:CollaborationProtocolAgreement xmlns:tp="http://www.oasis-open.org/committees/ebxml-cppa/schema/'
+        'cpp-cpa-2_0.xsd" tp:cpaid="x">&lol;</tp:CollaborationProtocolAgreement>'
+    )
+
+    with pytest.raises(CpaParseError, match="not well-formed or safe") as error:
+        parse_cpa_summary(cpa_xml)
+
+    assert isinstance(error.value.__cause__, EntitiesForbidden)
+
+
+def _first_embedded_certificate(cpa_xml: str) -> str:
+    match = re.search(r"<ds:X509Certificate>([^<]*)</ds:X509Certificate>", cpa_xml)
+    assert match
+    return match.group(1)
+
+
+def test_parse_cpa_summary_rejects_a_certificate_with_an_invalid_version():
+    der = base64.b64decode(_first_embedded_certificate(SAMPLE_CPA))
+    # TBSCertificate's version: [0] EXPLICIT INTEGER 2 (v3); 5 isn't a valid X.509 version
+    assert der.count(b"\xa0\x03\x02\x01\x02") == 1
+    corrupt = base64.b64encode(der.replace(b"\xa0\x03\x02\x01\x02", b"\xa0\x03\x02\x01\x05")).decode()
+
+    with pytest.raises(CpaParseError, match="'SP_ServerCert' is not a valid X.509 certificate") as error:
+        parse_cpa_summary(SAMPLE_CPA.replace(_first_embedded_certificate(SAMPLE_CPA), corrupt))
+
+    assert isinstance(error.value.__cause__, x509.InvalidVersion)
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    ["https://[ebms-sr.example.invalid/ebms", "https://ebms-sr.example.invalid:port/ebms", "https://x:99999/ebms"],
+)
+def test_parse_cpa_summary_rejects_an_invalid_endpoint(endpoint):
+    cpa_xml = SAMPLE_CPA.replace("https://ebms-sr.example.invalid/ebms", endpoint)
+
+    with pytest.raises(CpaParseError, match="is not a valid URL"):
+        parse_cpa_summary(cpa_xml)
+
+
+def test_parse_cpa_summary_reads_a_certificate_from_any_x509_data_element():
+    certificate = _first_embedded_certificate(SAMPLE_CPA)
+    # the names in the first X509Data element, the certificate itself in a second one
+    cpa_xml = SAMPLE_CPA.replace(
+        f"<ds:X509Certificate>{certificate}</ds:X509Certificate>",
+        f"</ds:X509Data><ds:X509Data><ds:X509Certificate>{certificate}</ds:X509Certificate>",
+    )
+
+    (parsed,) = parse_cpa_summary(cpa_xml).parties[0].certificates
+
+    assert parsed.not_after == datetime(2028, 3, 31, 13, 49, 59, tzinfo=UTC)
+    assert parsed.serial_number == "1001"

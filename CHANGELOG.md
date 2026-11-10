@@ -16,8 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its typed party ids, collaboration roles (process, role, service,
   CanSend/CanReceive actions), transport endpoints and certificates
   (subject, issuer, serial, expiry). Parsed with defusedxml; malformed or
-  unsafe input raises `CpaParseError`. It doesn't validate the CPA:
-  `EbmsAdapterClient.validate_cpa` still asks ebms-core to do that.
+  unsafe input, an invalid endpoint URL or an invalid certificate raises
+  `CpaParseError`. `CpaSummary.is_active` is false for a `proposed` CPA and
+  from End on, as in ebms-core, and also before Start. It doesn't validate the
+  CPA: `EbmsAdapterClient.validate_cpa` still asks ebms-core to do that.
 - `cryptography` dependency, used to read the expiry of the certificates
   embedded in a CPA.
 
