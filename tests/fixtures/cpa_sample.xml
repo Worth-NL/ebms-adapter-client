@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Logius MijnOverheid Berichtenbox CPA layout with dummy parties, OINs, endpoints and self-signed dummy
+     certificates. Generated for tests; it identifies nobody and holds no secrets. -->
+<tp:CollaborationProtocolAgreement xmlns:tp="http://www.oasis-open.org/committees/ebxml-cppa/schema/cpp-cpa-2_0.xsd" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" tp:cpaid="EXAMPLE-EBMS-BB-2-0_00000001000000000001-00000001000000000002_0001" tp:version="1.0">
+  <tp:Status tp:value="agreed"/>
+  <tp:Start>2026-11-05T00:00:00Z</tp:Start>
+  <tp:End>2028-03-31T13:49:59Z</tp:End>
+  <tp:PartyInfo tp:partyName="Example Service Provider" tp:defaultMshChannelId="SP_DC" tp:defaultMshPackageId="defaultPackage_Profile">
+    <tp:PartyId tp:type="urn:osb:oin">00000001000000000001</tp:PartyId>
+    <tp:PartyRef xlink:type="simple" xlink:href="https://example.invalid"/>
+    <tp:CollaborationRole>
+      <tp:ProcessSpecification tp:name="MijnOverheid_BB_R" tp:version="1.0" tp:uuid="urn:example:MijnOverheid_BB_R" xlink:type="simple" xlink:href="http://example.invalid/MijnOverheid_BB_R"/>
+      <tp:Role tp:name="SP" xlink:type="simple" xlink:href="http://example.invalid/MijnOverheid_BB_R"/>
+      <tp:ServiceBinding>
+        <tp:Service tp:type="urn:osb:services">MIJNOVERHEID.ebMS.BB.2.0</tp:Service>
+        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SP_S_GLOBE-R-A-Result" tp:action="GLOBE-R-A-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Result</tp:OtherPartyActionBinding></tp:CanSend>
+        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SP_S_GLOBE-R-BV-Result" tp:action="GLOBE-R-BV-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Result</tp:OtherPartyActionBinding></tp:CanSend>
+        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SP_R_GLOBE-R-A-Request" tp:action="GLOBE-R-A-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Request</tp:OtherPartyActionBinding></tp:CanReceive>
+        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SP_R_GLOBE-R-BV-Request" tp:action="GLOBE-R-BV-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Request</tp:OtherPartyActionBinding></tp:CanReceive>
+      </tp:ServiceBinding>
+    </tp:CollaborationRole>
+    <tp:Certificate tp:certId="SP_ServerCert">
+      <ds:KeyInfo>
+        <ds:X509Data>
+          <ds:X509IssuerSerial>
+            <ds:X509IssuerName>CN=sp.example.invalid,O=Example</ds:X509IssuerName>
+            <ds:X509SerialNumber>1001</ds:X509SerialNumber>
+          </ds:X509IssuerSerial>
+          <ds:X509SubjectName>CN=sp.example.invalid,O=Example</ds:X509SubjectName>
+          <ds:X509Certificate>MIIBTDCB8qADAgECAgID6TAKBggqhkjOPQQDAjAvMRswGQYDVQQDDBJzcC5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwHhcNMjYwMTAxMDAwMDAwWhcNMjgwMzMxMTM0OTU5WjAvMRswGQYDVQQDDBJzcC5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQiwV/p8WePYG1XSUvXq/Zfbp2sLGL/c9+1fvhwpcNOAlGtfX1KtLw7XVDL4WowKIPT77UOwWLuo5gGVmrJNZWUMAoGCCqGSM49BAMCA0kAMEYCIQCTkWbiKDspEnoUPBFNFJ6bpHiqVSITUUeRr/qxawu6JQIhAKe7UOE6l8uFHC7O2SqOt4Am+qozwE++xIth2w+0pD2R</ds:X509Certificate>
+        </ds:X509Data>
+      </ds:KeyInfo>
+    </tp:Certificate>
+    <tp:Transport tp:transportId="SP_T_HTTPS">
+      <tp:TransportReceiver>
+        <tp:Endpoint tp:uri="https://ebms-sp.example.invalid/ebXML" tp:type="allPurpose"/>
+      </tp:TransportReceiver>
+    </tp:Transport>
+  </tp:PartyInfo>
+  <tp:PartyInfo tp:partyName="Example Service Requester" tp:defaultMshChannelId="SR_DC" tp:defaultMshPackageId="defaultPackage_Profile">
+    <tp:PartyId tp:type="urn:osb:oin">00000001000000000002</tp:PartyId>
+    <tp:PartyRef xlink:type="simple" xlink:href="https://example.invalid"/>
+    <tp:CollaborationRole>
+      <tp:ProcessSpecification tp:name="MijnOverheid_BB_R" tp:version="1.0" tp:uuid="urn:example:MijnOverheid_BB_R" xlink:type="simple" xlink:href="http://example.invalid/MijnOverheid_BB_R"/>
+      <tp:Role tp:name="SR" xlink:type="simple" xlink:href="http://example.invalid/MijnOverheid_BB_R"/>
+      <tp:ServiceBinding>
+        <tp:Service tp:type="urn:osb:services">MIJNOVERHEID.ebMS.BB.2.0</tp:Service>
+        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SR_S_GLOBE-R-A-Request" tp:action="GLOBE-R-A-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Request</tp:OtherPartyActionBinding></tp:CanSend>
+        <tp:CanSend><tp:ThisPartyActionBinding tp:id="SR_S_GLOBE-R-BV-Request" tp:action="GLOBE-R-BV-Request" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Request</tp:OtherPartyActionBinding></tp:CanSend>
+        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SR_R_GLOBE-R-A-Result" tp:action="GLOBE-R-A-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-A-Result</tp:OtherPartyActionBinding></tp:CanReceive>
+        <tp:CanReceive><tp:ThisPartyActionBinding tp:id="SR_R_GLOBE-R-BV-Result" tp:action="GLOBE-R-BV-Result" tp:packageId="defaultPackage_Profile"/><tp:OtherPartyActionBinding>x_GLOBE-R-BV-Result</tp:OtherPartyActionBinding></tp:CanReceive>
+      </tp:ServiceBinding>
+    </tp:CollaborationRole>
+    <tp:Certificate tp:certId="SR_ServerCert">
+      <ds:KeyInfo>
+        <ds:X509Data>
+          <ds:X509IssuerSerial>
+            <ds:X509IssuerName>CN=sr.example.invalid,O=Example</ds:X509IssuerName>
+            <ds:X509SerialNumber>2002</ds:X509SerialNumber>
+          </ds:X509IssuerSerial>
+          <ds:X509SubjectName>CN=sr.example.invalid,O=Example</ds:X509SubjectName>
+          <ds:X509Certificate>MIIBSzCB8qADAgECAgIH0jAKBggqhkjOPQQDAjAvMRswGQYDVQQDDBJzci5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwHhcNMjYwMTAxMDAwMDAwWhcNMjcwMTE2MTIwMDAwWjAvMRswGQYDVQQDDBJzci5leGFtcGxlLmludmFsaWQxEDAOBgNVBAoMB0V4YW1wbGUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAREUeQC5Psfis/pgg0gV89AisRxih2tNo2EEDks2dXn6EaTXhj10YgLz14qRo0D+hV6W+NXXxtGbsF5kkwhHQj8MAoGCCqGSM49BAMCA0gAMEUCID1hoNEbCoUXY38ijyukgHpj4JFxpAkhzzj02rO9EyxvAiEA3rgC8XpUHFJ+Z+Exe3cjsCI8FKgaEf6Jo7bARJrq2g8=</ds:X509Certificate>
+        </ds:X509Data>
+      </ds:KeyInfo>
+    </tp:Certificate>
+    <tp:Transport tp:transportId="SR_T_HTTPS">
+      <tp:TransportReceiver>
+        <tp:Endpoint tp:uri="https://ebms-sr.example.invalid/ebms" tp:type="allPurpose"/>
+      </tp:TransportReceiver>
+    </tp:Transport>
+  </tp:PartyInfo>
+</tp:CollaborationProtocolAgreement>

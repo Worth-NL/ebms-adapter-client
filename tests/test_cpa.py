@@ -1,0 +1,214 @@
+import base64
+import re
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+from cryptography import x509
+from defusedxml import EntitiesForbidden
+
+from ebms_adapter_client import CpaParseError, CpaPartyId, parse_cpa_summary
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
+SAMPLE_CPA = (FIXTURES_DIR / "cpa_sample.xml").read_text()
+
+SP_OIN = "00000001000000000001"
+SR_OIN = "00000001000000000002"
+
+
+def _without_embedded_certificates(cpa_xml: str) -> str:
+    return re.sub(r"<ds:X509Certificate>[^<]*</ds:X509Certificate>", "", cpa_xml)
+
+
+def test_parse_cpa_summary_reads_the_agreement():
+    summary = parse_cpa_summary(SAMPLE_CPA)
+
+    assert summary.cpa_id == f"EXAMPLE-EBMS-BB-2-0_{SP_OIN}-{SR_OIN}_0001"
+    assert summary.status == "agreed"
+    assert summary.start == datetime(2026, 11, 5, tzinfo=UTC)
+    assert summary.end == datetime(2028, 3, 31, 13, 49, 59, tzinfo=UTC)
+    assert [party.name for party in summary.parties] == ["Example Service Provider", "Example Service Requester"]
+
+
+def test_parse_cpa_summary_accepts_bytes():
+    assert parse_cpa_summary(SAMPLE_CPA.encode()).cpa_id == parse_cpa_summary(SAMPLE_CPA).cpa_id
+
+
+def test_parse_cpa_summary_reads_each_party():
+    requester = parse_cpa_summary(SAMPLE_CPA).parties[1]
+
+    assert requester.party_ids == (CpaPartyId(value=SR_OIN, type="urn:osb:oin"),)
+    assert requester.party_ids[0].qualified == f"urn:osb:oin:{SR_OIN}"
+    assert requester.endpoints == ("https://ebms-sr.example.invalid/ebms",)
+    assert requester.endpoint_hosts == ("ebms-sr.example.invalid",)
+
+    (role,) = requester.collaboration_roles
+    assert role.process == "MijnOverheid_BB_R"
+    assert role.role == "SR"
+    assert role.service == "MIJNOVERHEID.ebMS.BB.2.0"
+    assert role.service_type == "urn:osb:services"
+    assert role.can_send == ("GLOBE-R-A-Request", "GLOBE-R-BV-Request")
+    assert role.can_receive == ("GLOBE-R-A-Result", "GLOBE-R-BV-Result")
+
+
+def test_parse_cpa_summary_reads_certificates_from_the_embedded_certificate():
+    provider, requester = parse_cpa_summary(SAMPLE_CPA).parties
+
+    (provider_certificate,) = provider.certificates
+    assert provider_certificate.cert_id == "SP_ServerCert"
+    assert provider_certificate.subject == "O=Example,CN=sp.example.invalid"
+    assert provider_certificate.issuer == "O=Example,CN=sp.example.invalid"
+    assert provider_certificate.serial_number == "1001"
+    assert provider_certificate.not_after == datetime(2028, 3, 31, 13, 49, 59, tzinfo=UTC)
+    assert requester.certificates[0].not_after == datetime(2027, 1, 16, 12, tzinfo=UTC)
+
+
+def test_parse_cpa_summary_falls_back_to_x509_data_names_without_an_embedded_certificate():
+    (certificate,) = parse_cpa_summary(_without_embedded_certificates(SAMPLE_CPA)).parties[0].certificates
+
+    assert certificate.subject == "CN=sp.example.invalid,O=Example"
+    assert certificate.issuer == "CN=sp.example.invalid,O=Example"
+    assert certificate.serial_number == "1001"
+    assert certificate.not_after is None
+
+
+@pytest.mark.parametrize("party_id", [SR_OIN, f"urn:osb:oin:{SR_OIN}"])
+def test_find_party_matches_bare_and_qualified_ids(party_id):
+    summary = parse_cpa_summary(SAMPLE_CPA)
+
+    party = summary.find_party(party_id)
+
+    assert party is summary.parties[1]
+    assert summary.other_parties(party) == (summary.parties[0],)
+
+
+def test_find_party_returns_none_for_an_unknown_party():
+    assert parse_cpa_summary(SAMPLE_CPA).find_party("urn:osb:oin:99999999999999999999") is None
+
+
+@pytest.mark.parametrize(
+    ("action", "process", "expected"),
+    [
+        ("GLOBE-R-BV-Request", None, True),
+        ("GLOBE-R-BV-Request", "MijnOverheid_BB_R", True),
+        ("GLOBE-R-BV-Request", "MijnOverheid_BB", False),
+        ("GLOBE-R-BV-Result", None, False),
+    ],
+)
+def test_can_send(action, process, expected):
+    requester = parse_cpa_summary(SAMPLE_CPA).parties[1]
+
+    assert requester.can_send(action, process=process) is expected
+
+
+@pytest.mark.parametrize(
+    ("at", "expected"),
+    [
+        (datetime(2026, 11, 4, 23, 59, 59, tzinfo=UTC), False),
+        (datetime(2026, 11, 5, tzinfo=UTC), True),
+        (datetime(2028, 3, 31, 13, 49, 58, tzinfo=UTC), True),
+        # End is exclusive, as in ebms-core's CPAValidator
+        (datetime(2028, 3, 31, 13, 49, 59, tzinfo=UTC), False),
+        # a naive date-time is read as UTC, like Start and End
+        (datetime(2026, 11, 5), True),
+        (datetime(2028, 3, 31, 13, 49, 59), False),
+    ],
+)
+def test_is_active(at, expected):
+    assert parse_cpa_summary(SAMPLE_CPA).is_active(at) is expected
+
+
+def test_a_proposed_cpa_is_never_active():
+    summary = parse_cpa_summary(SAMPLE_CPA.replace('tp:value="agreed"', 'tp:value="proposed"'))
+
+    assert summary.status == "proposed"
+    assert summary.is_active(datetime(2027, 1, 1, tzinfo=UTC)) is False
+
+
+def test_naive_start_and_end_are_read_as_utc():
+    cpa_xml = SAMPLE_CPA.replace("2026-11-05T00:00:00Z", "2026-11-05T00:00:00")
+
+    assert parse_cpa_summary(cpa_xml).start == datetime(2026, 11, 5, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("cpa_xml", "message"),
+    [
+        ("<not-closed>", "not well-formed"),
+        ("<Something/>", "Expected a CollaborationProtocolAgreement"),
+        (SAMPLE_CPA.replace(' tp:cpaid="', ' tp:other="'), "no cpaid"),
+        (SAMPLE_CPA.replace("<tp:Start>2026-11-05T00:00:00Z</tp:Start>", ""), "no Start"),
+        (SAMPLE_CPA.replace("2028-03-31T13:49:59Z", "end of time"), "End is not a valid date-time"),
+        (re.sub(r"<tp:PartyInfo .*?</tp:PartyInfo>", "", SAMPLE_CPA, flags=re.DOTALL), "no PartyInfo"),
+        (re.sub(r"<ds:X509Certificate>[^<]*<", "<ds:X509Certificate>not base64!<", SAMPLE_CPA), "not a valid X.509"),
+    ],
+    ids=[
+        "malformed",
+        "wrong-root",
+        "no-cpaid",
+        "no-start",
+        "bad-end",
+        "no-parties",
+        "bad-certificate",
+    ],
+)
+def test_parse_cpa_summary_rejects(cpa_xml, message):
+    with pytest.raises(CpaParseError, match=message):
+        parse_cpa_summary(cpa_xml)
+
+
+def test_parse_cpa_summary_refuses_entity_declarations():
+    # well-formed XML, so only defusedxml stops it
+    cpa_xml = (
+        '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">]>'
+        '<tp:CollaborationProtocolAgreement xmlns:tp="http://www.oasis-open.org/committees/ebxml-cppa/schema/'
+        'cpp-cpa-2_0.xsd" tp:cpaid="x">&lol;</tp:CollaborationProtocolAgreement>'
+    )
+
+    with pytest.raises(CpaParseError, match="not well-formed or safe") as error:
+        parse_cpa_summary(cpa_xml)
+
+    assert isinstance(error.value.__cause__, EntitiesForbidden)
+
+
+def _first_embedded_certificate(cpa_xml: str) -> str:
+    match = re.search(r"<ds:X509Certificate>([^<]*)</ds:X509Certificate>", cpa_xml)
+    assert match
+    return match.group(1)
+
+
+def test_parse_cpa_summary_rejects_a_certificate_with_an_invalid_version():
+    der = base64.b64decode(_first_embedded_certificate(SAMPLE_CPA))
+    # TBSCertificate's version: [0] EXPLICIT INTEGER 2 (v3); 5 isn't a valid X.509 version
+    assert der.count(b"\xa0\x03\x02\x01\x02") == 1
+    corrupt = base64.b64encode(der.replace(b"\xa0\x03\x02\x01\x02", b"\xa0\x03\x02\x01\x05")).decode()
+
+    with pytest.raises(CpaParseError, match="'SP_ServerCert' is not a valid X.509 certificate") as error:
+        parse_cpa_summary(SAMPLE_CPA.replace(_first_embedded_certificate(SAMPLE_CPA), corrupt))
+
+    assert isinstance(error.value.__cause__, x509.InvalidVersion)
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    ["https://[ebms-sr.example.invalid/ebms", "https://ebms-sr.example.invalid:port/ebms", "https://x:99999/ebms"],
+)
+def test_parse_cpa_summary_rejects_an_invalid_endpoint(endpoint):
+    cpa_xml = SAMPLE_CPA.replace("https://ebms-sr.example.invalid/ebms", endpoint)
+
+    with pytest.raises(CpaParseError, match="is not a valid URL"):
+        parse_cpa_summary(cpa_xml)
+
+
+def test_parse_cpa_summary_reads_a_certificate_from_any_x509_data_element():
+    certificate = _first_embedded_certificate(SAMPLE_CPA)
+    # the names in the first X509Data element, the certificate itself in a second one
+    cpa_xml = SAMPLE_CPA.replace(
+        f"<ds:X509Certificate>{certificate}</ds:X509Certificate>",
+        f"</ds:X509Data><ds:X509Data><ds:X509Certificate>{certificate}</ds:X509Certificate>",
+    )
+
+    (parsed,) = parse_cpa_summary(cpa_xml).parties[0].certificates
+
+    assert parsed.not_after == datetime(2028, 3, 31, 13, 49, 59, tzinfo=UTC)
+    assert parsed.serial_number == "1001"

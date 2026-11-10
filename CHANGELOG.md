@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-10
+
+### Added
+
+- `parse_cpa_summary`, a read-only summary of an ebXML CPPA 2.0
+  Collaboration-Protocol Agreement: CPA id, status, Start/End, and per party
+  its typed party ids, collaboration roles (process, role, service,
+  CanSend/CanReceive actions), transport endpoints and certificates
+  (subject, issuer, serial, expiry). Parsed with defusedxml; malformed or
+  unsafe input, an invalid endpoint URL or an invalid certificate raises
+  `CpaParseError`. `CpaSummary.is_active` is false for a `proposed` CPA and
+  from End on, as in ebms-core, and also before Start. It doesn't validate the
+  CPA: `EbmsAdapterClient.validate_cpa` still asks ebms-core to do that.
+- `cryptography` dependency, used to read the expiry of the certificates
+  embedded in a CPA.
+
 ## [0.3.0] - 2026-07-24
 
 ### Added
@@ -58,7 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ebms_adapter_client.berichtenbox` sub-package for building and parsing
   MijnOverheid Berichtenbox 2.0 GLOBE-R-BV XML messages.
 
-[Unreleased]: https://github.com/Worth-NL/ebms-adapter-client/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Worth-NL/ebms-adapter-client/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Worth-NL/ebms-adapter-client/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Worth-NL/ebms-adapter-client/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Worth-NL/ebms-adapter-client/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Worth-NL/ebms-adapter-client/releases/tag/v0.1.0

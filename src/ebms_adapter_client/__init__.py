@@ -2,6 +2,15 @@ from importlib.metadata import PackageNotFoundError, version
 
 from ebms_adapter_client.client import EbmsAdapterClient
 from ebms_adapter_client.config import EbmsAdapterClientConfig
+from ebms_adapter_client.cpa import (
+    CpaCertificate,
+    CpaCollaborationRole,
+    CpaParseError,
+    CpaParty,
+    CpaPartyId,
+    CpaSummary,
+    parse_cpa_summary,
+)
 from ebms_adapter_client.exceptions import (
     EbmsAdapterError,
     EbmsBadRequestError,
@@ -34,6 +43,13 @@ except PackageNotFoundError:
 __all__ = [
     "EbmsAdapterClient",
     "EbmsAdapterClientConfig",
+    "CpaCertificate",
+    "CpaCollaborationRole",
+    "CpaParseError",
+    "CpaParty",
+    "CpaPartyId",
+    "CpaSummary",
+    "parse_cpa_summary",
     "EbmsAdapterError",
     "EbmsBadRequestError",
     "EbmsConnectionError",
