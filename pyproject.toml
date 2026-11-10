@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ebms-adapter-client"
-version = "0.3.0"
+version = "0.4.0"
 description = "Python client for the ebms-core (eluinstra/ebms-core) REST API."
 readme = "README.md"
 license = "MIT"
@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
     "httpx>=0.27.0",
     "defusedxml>=0.7.1",
+    "cryptography>=42.0.0",
 ]
 
 [project.urls]
